@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#090b12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>DEAD BLOCK — Motel Siege</title>
+  <meta name="description" content="A 1959 roadside survival shooter rebuilt for touch. Board up. Set traps. Survive the night." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23090b12'/%3E%3Cpath d='M13 22a19 19 0 0 1 38 0v17c0 9-8 13-19 13S13 48 13 39z' fill='%23eadfc9'/%3E%3Ccircle cx='24' cy='34' r='6' fill='%23090b12'/%3E%3Ccircle cx='40' cy='34' r='6' fill='%23090b12'/%3E%3Cpath d='M27 46h10l-5 8z' fill='%23090b12'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <main id="app">
+    <canvas id="game" aria-label="Dead Block game scene"></canvas>
+
+    <div class="scene-grade" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
+    <div class="scanlines" aria-hidden="true"></div>
+    <div id="damage-flash" aria-hidden="true"></div>
+
+    <!-- In-game HUD -->
+    <section id="hud" class="hidden" aria-label="Game heads-up display">
+      <header class="hud-top">
+        <div class="brand-mini">
+          <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M13 22a19 19 0 0 1 38 0v17c0 9-8 13-19 13S13 48 13 39z"/><circle cx="24" cy="34" r="6"/><circle cx="40" cy="34" r="6"/><path d="M27 46h10l-5 8z"/></svg>
+          <div><b>DEAD BLOCK</b><span>MOTEL SIEGE</span></div>
+        </div>
+
+        <div class="wave-card">
+          <div class="wave-kicker"><span id="night-label">NIGHT 01</span><i></i><span id="wave-state">WAVE 1 / 6</span></div>
+          <div class="wave-title" id="wave-title">THE FIRST KNOCK</div>
+          <div class="wave-track"><div id="wave-progress"></div><span class="wave-ticks"></span></div>
+        </div>
+
+        <div class="score-cluster">
+          <div class="score-box"><span>SCORE</span><b id="score">000000</b></div>
+          <div class="scrap-box"><span class="scrap-icon">✦</span><b id="scrap">06</b><small>SCRAP</small></div>
+          <button id="pause-btn" class="icon-btn" aria-label="Pause game" title="Pause">
+            <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="2.6"/></svg>
+          </button>
+          <button id="mute-btn" class="icon-btn" aria-label="Toggle sound" title="Sound">
+            <svg class="sound-on" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8a5 5 0 0 1 0 8M18.5 5.5a8.5 8.5 0 0 1 0 13"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <div class="hud-left">
+        <div class="survivor-card">
+          <div class="portrait">
+            <svg viewBox="0 0 80 80" aria-hidden="true"><path d="M18 33a22 22 0 0 1 44 0v13c0 16-10 22-22 22S18 62 18 46z" fill="#d6c6a5"/><path d="M15 32c1-16 12-24 25-24s25 9 25 24c-7-5-15-7-25-7s-18 2-25 7z" fill="#202433"/><path d="M28 36h9v6h-9zM44 36h9v6h-9z" fill="#202433"/><path d="M33 52h14l-7 10z" fill="#8e3a34"/><path d="M22 63c4-7 10-10 18-10s14 3 18 10" fill="none" stroke="#874039" stroke-width="5"/></svg>
+          </div>
+          <div class="survivor-meta">
+            <div class="survivor-name"><span>ROOK</span><em>LV. 01</em></div>
+            <div class="health-track"><div id="health-fill"></div><span id="health-text">100</span></div>
+            <div class="status-row"><span class="status-dot"></span><span id="status-text">STEADY</span></div>
+          </div>
+        </div>
+
+        <div class="barricade-panel">
+          <span class="panel-label">PERIMETER</span>
+          <div class="barricade-row" data-barrier="0"><i>N</i><div class="mini-bar"><span></span></div><b>100%</b></div>
+          <div class="barricade-row" data-barrier="1"><i>W</i><div class="mini-bar"><span></span></div><b>100%</b></div>
+          <div class="barricade-row" data-barrier="2"><i>E</i><div class="mini-bar"><span></span></div><b>100%</b></div>
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <div class="clear-banner hidden" id="clear-banner"><span>WAVE</span><b>CLEARED</b><em id="clear-bonus">+6 SCRAP</em></div>
+        <div class="break-banner hidden" id="break-banner">
+          <span>THEY'RE COMING BACK</span>
+          <b id="break-count">00:07</b>
+          <em>REPAIR THE LINE</em>
+        </div>
+      </div>
+
+      <div id="target-lock" class="target-lock hidden" aria-hidden="true">
+        <i></i><i></i><i></i><i></i><span>Z</span>
+      </div>
+
+      <div id="objective" class="objective">
+        <span class="objective-icon">◆</span>
+        <div><b id="objective-title">HOLD THE COURTYARD</b><em id="objective-sub">Survive six waves until dawn</em></div>
+      </div>
+
+      <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
+
+      <div class="hud-bottom">
+        <div class="ammo-cluster">
+          <div class="weapon-name"><span>“BESSIE”</span><em>12 GAUGE</em></div>
+          <div id="shells" class="shells" aria-label="Ammo"></div>
+          <div class="reload-label hidden" id="reload-label">RELOADING</div>
+        </div>
+
+        <div class="touch-tip" id="touch-tip">
+          <span class="tip-mouse">WASD</span> MOVE <i></i> <span class="tip-mouse">CLICK</span> FIRE <i></i> <span class="tip-mouse">E</span> REPAIR <i></i> <span class="tip-mouse">Q</span> TRAP
+        </div>
+
+        <div class="action-zone" id="action-zone">
+          <button id="trap-btn" class="action-btn secondary" aria-label="Place bear trap">
+            <span class="btn-glyph">
+              <svg viewBox="0 0 40 40"><path d="M8 27c0-9 5-15 12-15s12 6 12 15" fill="none" stroke="currentColor" stroke-width="3"/><path d="M5 29h30M12 29l3 6M28 29l-3 6M14 21l2 4M26 21l-2 4" fill="none" stroke="currentColor" stroke-width="3"/></svg>
+            </span>
+            <b>TRAP</b><em><i class="scrap-mini">✦</i>3</em>
+            <span class="key-hint">Q</span>
+          </button>
+          <button id="repair-btn" class="action-btn secondary" aria-label="Repair barricade">
+            <span class="btn-glyph">
+              <svg viewBox="0 0 40 40"><path d="M9 31 24 16M22 8l10 10-5 5-10-10zM7 33l5-2 10-10-3-3L9 28z" fill="none" stroke="currentColor" stroke-width="3"/></svg>
+            </span>
+            <b>REPAIR</b><em><i class="scrap-mini">✦</i>2</em>
+            <span class="key-hint">E</span>
+          </button>
+          <button id="fire-btn" class="action-btn fire" aria-label="Fire shotgun">
+            <span class="fire-ring"></span>
+            <span class="btn-glyph">
+              <svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="11" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M24 5v9M24 34v9M5 24h9M34 24h9" fill="none" stroke="currentColor" stroke-width="2.5"/><circle cx="24" cy="24" r="3" fill="currentColor"/></svg>
+            </span>
+            <b>FIRE</b>
+            <span class="key-hint">LMB</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="joystick-zone" class="joystick-zone" aria-label="Movement joystick">
+        <div class="joystick-ring"></div>
+        <div class="joystick-base"><div id="joystick-knob" class="joystick-knob"><span></span></div></div>
+        <span class="joystick-label">MOVE</span>
+      </div>
+
+      <div class="low-health-vignette" id="low-health"></div>
+    </section>
+
+    <!-- Title / start screen -->
+    <section id="start-screen" class="screen start-screen">
+      <div class="start-shade"></div>
+      <div class="start-marquee">
+        <span>NOW SHOWING</span><i></i><span>ONE NIGHT ONLY</span>
+      </div>
+
+      <div class="title-wrap">
+        <div class="port-badge"><span>PS3 CULT CLASSIC</span><b>REBUILT FOR TOUCH</b><i></i></div>
+        <div class="title-lockup" aria-label="Dead Block">
+          <div class="title-dead"><span>D</span><span>E</span><span>A</span><span>D</span></div>
+          <div class="title-block"><span>B</span><span>L</span><span>O</span><span>C</span><span>K</span></div>
+          <div class="title-slash"></div>
+          <div class="title-tag">MOTEL <b>SIEGE</b></div>
+        </div>
+        <p class="title-blurb">The road is dead. The motel is not empty.<br/><strong>Board up. Set traps. Live till sunrise.</strong></p>
+
+        <div class="start-actions">
+          <button id="start-btn" aria-label="Start" class="start-btn">
+            <span class="btn-noise"></span>
+            <span class="start-btn-label">START SIEGE</span>
+            <span class="start-btn-sub">TAP TO ENTER THE NIGHT</span>
+          </button>
+          <div class="start-meta">
+            <div><span>06</span><b>WAVES</b></div>
+            <i></i>
+            <div><span>03</span><b>BARRICADES</b></div>
+            <i></i>
+            <div><span>∞</span><b>RETRIES</b></div>
+          </div>
+        </div>
+
+        <div class="how-to">
+          <div class="how-item"><span class="joy-icon"><i></i></span><div><b>MOVE</b><em>Thumb stick</em></div></div>
+          <div class="how-item"><span class="fire-icon"></span><div><b>FIRE</b><em>Auto-aim</em></div></div>
+          <div class="how-item"><span class="hammer-icon">⚒</span><div><b>REPAIR</b><em>Spend scrap</em></div></div>
+          <div class="how-item"><span class="trap-icon">✦</span><div><b>TRAP</b><em>Hold the line</em></div></div>
+        </div>
+      </div>
+
+      <div class="start-note" aria-hidden="true">
+        <span></span>
+        <div><b>“THE ROAD IS DEAD. THE NEON ISN’T.”</b><em>SIX WAVES · ONE SHOTGUN · NO CHECKOUT</em></div>
+        <span></span>
+      </div>
+
+      <div class="start-footer">
+        <div class="rating-box">M</div>
+        <p><b>BLOOD • VIOLENCE • 1950s ATTITUDE</b><span>A fan-made mobile tribute. Headphones recommended.</span></p>
+        <div class="format-tag"><b>MOBILE</b><span>PORTABLE EDITION</span></div>
+      </div>
+
+      <div class="start-tip">BEST PLAYED IN LANDSCAPE <span>↻</span></div>
+    </section>
+
+    <!-- Pause -->
+    <section id="pause-screen" class="screen modal-screen hidden">
+      <div class="modal-panel pause-panel">
+        <span class="modal-kicker">INTERMISSION</span>
+        <h2>HOLD THAT THOUGHT.</h2>
+        <p>The dead are patient.</p>
+        <button id="resume-btn" class="menu-btn primary" aria-label="Resume">RESUME SIEGE</button>
+        <button id="quit-btn" class="menu-btn" aria-label="Quit to title">QUIT TO TITLE</button>
+        <div class="modal-controls">WASD / STICK TO MOVE &nbsp;•&nbsp; CLICK / FIRE TO SHOOT</div>
+      </div>
+    </section>
+
+    <!-- Game over / victory -->
+    <section id="end-screen" class="screen end-screen hidden">
+      <div class="end-stamp" id="end-stamp">YOU DIED</div>
+      <div class="end-panel">
+        <span class="modal-kicker" id="end-kicker">THE NIGHT WINS</span>
+        <h2 id="end-title">THE MOTEL<br/>KEEPS ITS GUESTS.</h2>
+        <p id="end-copy">They got through the line. They always do.</p>
+        <div class="end-stats">
+          <div><span>WAVES HELD</span><b id="stat-wave">0 / 6</b></div>
+          <div><span>ZOMBIES DROPPED</span><b id="stat-kills">0</b></div>
+          <div><span>FINAL SCORE</span><b id="stat-score">0</b></div>
+        </div>
+        <div class="end-best">PERSONAL BEST <b id="stat-best">000000</b></div>
+        <button id="retry-btn" class="menu-btn primary" aria-label="Retry">BUST ANOTHER NIGHT</button>
+        <button id="end-quit-btn" class="menu-btn" aria-label="Back to title">BACK TO TITLE</button>
+      </div>
+    </section>
+
+    <div id="rotate-hint" class="rotate-hint hidden"><span>↻</span><b>ROTATE FOR THE FULL WIDESCREEN SHOW</b></div>
+    <div id="fatal" class="fatal hidden"></div>
+  </main>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
